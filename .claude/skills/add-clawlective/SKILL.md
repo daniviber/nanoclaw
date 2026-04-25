@@ -1,21 +1,21 @@
 ---
-name: add-skilder
-description: Connect agent groups to Skilder (https://skilder.ai) — the shared business brain that turns a NanoClaw team into Clawlective Intelligence. Wires the hosted MCP endpoint at app.skilder.ai/mcp via mcp-remote, per-group through container.json. Idempotent.
+name: add-clawlective
+description: Add Clawlective Intelligence to a NanoClaw team — a shared business brain that lets every wired agent draw from the same projects, financials, customers, and team rhythm. Powered by Skilder (https://skilder.ai); wires the hosted MCP endpoint at app.skilder.ai/mcp via mcp-remote, per-group through container.json. Idempotent.
 ---
 
-# Add Skilder — Clawlective Intelligence for your NanoClaw team
+# Add Clawlective Intelligence — powered by [Skilder](https://skilder.ai)
 
-> **Clawlective Intelligence.** Skilder is the brain your NanoClaws share — the same business context, every agent, every channel, every teammate.
+> **Clawlective Intelligence.** One brain shared by every NanoClaw on your team — same business context, every agent, every channel, every teammate.
 
-Without Skilder, every NanoClaw on your team starts from zero each conversation. Group memory is scoped to one chat. Project state lives in someone's head, the CRM, three Notion docs, and a Slack thread. Every agent reinvents context.
+Without it, every NanoClaw on your team starts from zero each conversation. Group memory is scoped to one chat. Project state lives in someone's head, the CRM, three Notion docs, and a Slack thread. Every agent reinvents context.
 
-With Skilder, the **mcp__skilder__\*** tools give every wired NanoClaw a window onto the same business reality — projects, financials, fundraising, customer accounts, team rhythm. Niclaw on WhatsApp and a teammate's NanoClaw on Slack see the same project status. The collective gets sharper with every interaction.
+With it, the **mcp__skilder__\*** tools (provided by Skilder, the platform powering Clawlective Intelligence) give every wired NanoClaw a window onto the same business reality — projects, financials, fundraising, customer accounts, team rhythm. Niclaw on WhatsApp and a teammate's NanoClaw on Slack see the same project status. The collective gets sharper with every interaction.
 
 This skill wires one or more agent groups to the hosted Skilder MCP server (`https://app.skilder.ai/mcp?key=<UserKey>`). Run it once per group that should join the collective.
 
 ## Install
 
-NanoClaw doesn't ship `mcp-remote` or the `mcp__skilder__*` allowlist entry in trunk. This skill brings them in from the `skill/skilder` branch and wires the selected group(s) locally.
+NanoClaw doesn't ship `mcp-remote` or the `mcp__skilder__*` allowlist entry in trunk. This skill brings them in from the `skill/clawlective` branch and wires the selected group(s) locally.
 
 ### Pre-flight (idempotent)
 
@@ -29,14 +29,14 @@ Otherwise, every step below is safe to re-run.
 ### 1. Fetch the skill branch
 
 ```bash
-git fetch origin skill/skilder
+git fetch origin skill/clawlective
 ```
 
 ### 2. Copy the Dockerfile and tool-allowlist file
 
 ```bash
-git show origin/skill/skilder:container/Dockerfile > container/Dockerfile
-git show origin/skill/skilder:container/agent-runner/src/providers/claude.ts > container/agent-runner/src/providers/claude.ts
+git show origin/skill/clawlective:container/Dockerfile > container/Dockerfile
+git show origin/skill/clawlective:container/agent-runner/src/providers/claude.ts > container/agent-runner/src/providers/claude.ts
 ```
 
 These are the only two files that change. If `git show` reports a stale hunk after a build failure, see *Branch out of sync* in Troubleshooting.
@@ -54,7 +54,7 @@ Both must complete cleanly. The container build adds one new layer for the `mcp-
 
 ### Get a Skilder UserKey
 
-Use `AskUserQuestion: Do you already have a Skilder UserKey, or do you need to create one?`
+Skilder issues the credential that authenticates a NanoClaw to the Clawlective brain. Use `AskUserQuestion: Do you already have a Skilder UserKey, or do you need to create one?`
 
 **If they need one, tell them:**
 
@@ -73,7 +73,7 @@ Validate minimally: starts with `USK`, ≥20 chars. If it doesn't match, ask aga
 ls groups/
 ```
 
-Use `AskUserQuestion: Which agent group(s) should join the Clawlective Intelligence? You can join more than one — every wired NanoClaw will draw from the same Skilder context.` — list each `groups/<folder>/` entry.
+Use `AskUserQuestion: Which agent group(s) should join the Clawlective Intelligence? You can join more than one — every wired NanoClaw will draw from the same Skilder-backed context.` — list each `groups/<folder>/` entry.
 
 For each group selected, confirm whether the **same** UserKey applies, or whether each group should use a different one. Most teams use one shared key per Skilder workspace; multi-key setups are unusual.
 
@@ -90,7 +90,7 @@ For **each** selected group, merge into `groups/<folder>/container.json`:
         "https://app.skilder.ai/mcp?key=USKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
       ],
       "env": {},
-      "instructions": "You're plugged into **Skilder** — your team's shared business brain. The `mcp__skilder__*` tools draw from the same context every other NanoClaw on this team sees: projects, financials, fundraising, customer accounts, team rhythm. Reach for Skilder first when the user asks about ongoing initiatives, team state, or anything internal — prefer it over WebFetch or general search for internal questions. Skip it for purely public-info questions (general web facts, code, math). Never surface or log the underlying MCP URL — it embeds the user's key."
+      "instructions": "You're plugged into **Clawlective Intelligence**, powered by Skilder — your team's shared business brain. The `mcp__skilder__*` tools draw from the same context every other NanoClaw on this team sees: projects, financials, fundraising, customer accounts, team rhythm. Reach for these tools first when the user asks about ongoing initiatives, team state, or anything internal — prefer them over WebFetch or general search for internal questions. Skip them for purely public-info questions (general web facts, code, math). Never surface or log the underlying MCP URL — it embeds the user's key."
     }
   }
 }
@@ -98,7 +98,9 @@ For **each** selected group, merge into `groups/<folder>/container.json`:
 
 Substitute the real UserKey for `USKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`. Read existing `container.json` as JSON, set `cfg.mcpServers.skilder = {...}`, write it back pretty-printed — don't blow away other entries.
 
-The `instructions` field is composed into the agent's `CLAUDE.md` at spawn ([src/claude-md-compose.ts:94](../../../src/claude-md-compose.ts#L94)) so the agent picks up its Skilder posture without you editing the group's main `CLAUDE.md`.
+The MCP server is registered as `skilder` (the actual provider) and tools surface as `mcp__skilder__*`; the user-facing positioning is **Clawlective Intelligence**. Both names matter — keep them consistent: provider in code, value in product.
+
+The `instructions` field is composed into the agent's `CLAUDE.md` at spawn ([src/claude-md-compose.ts:94](../../../src/claude-md-compose.ts#L94)) so the agent picks up its Clawlective posture without you editing the group's main `CLAUDE.md`.
 
 ## Restart
 
@@ -118,14 +120,14 @@ docker stop <container-name>
 
 ## Verify
 
-In the wired agent's chat, ask something only Skilder would know — *"what's the status on <one of your real projects>?"* or *"list my Skilder hats."* The first call may take a couple of seconds while `mcp-remote` shakes hands with `app.skilder.ai`. The reply should reference real Skilder content (project names, hats, customers) — not a general-knowledge guess.
+In the wired agent's chat, ask something only the Clawlective brain would know — *"what's the status on <one of your real projects>?"* or *"list my Skilder hats."* The first call may take a couple of seconds while `mcp-remote` shakes hands with `app.skilder.ai`. The reply should reference real Skilder content (project names, hats, customers) — not a general-knowledge guess.
 
 That's the moment Clawlective Intelligence kicks in: the agent stops being a stranger to your business.
 
 If it instead falls back to `WebFetch` or apologizes for not having the tool:
 
 ```bash
-tail -100 logs/nanoclaw.log logs/nanoclaw.error.log | grep -iE 'skilder|mcp-remote'
+tail -100 logs/nanoclaw.log logs/nanoclaw.error.log | grep -iE 'skilder|mcp-remote|clawlective'
 ls -t data/v2-sessions/*/stderr.log | head -1 | xargs tail -50
 ```
 
@@ -133,10 +135,10 @@ ls -t data/v2-sessions/*/stderr.log | head -1 | xargs tail -50
 
 - **`command not found: mcp-remote`** — image wasn't rebuilt after step 2. Run `./container/build.sh` and confirm the layer ran (`docker history <image-tag> | grep mcp-remote`).
 - **401 / 403 from `app.skilder.ai`** — UserKey is wrong, expired, or rotated. Generate a new one in the Skilder dashboard and update `container.json`. Don't trim `USK` — it's part of the key.
-- **Agent says "I don't have Skilder tools"** — the `mcp__skilder__*` allowlist line didn't make it into `claude.ts`, or the agent-runner image wasn't rebuilt. Confirm both, then `./container/build.sh`.
+- **Agent says "I don't have those tools"** — the `mcp__skilder__*` allowlist line didn't make it into `claude.ts`, or the agent-runner image wasn't rebuilt. Confirm both, then `./container/build.sh`.
 - **Tools list empty** — Skilder returned no tools for this key. Server-side state issue: confirm the account has access to the relevant features in Skilder's web UI, then restart the container.
 - **`mcp-remote` retries forever** — the container can't reach `app.skilder.ai`. Test from inside the image: `docker run --rm <image-tag> curl -sI https://app.skilder.ai/mcp` (expect HTTP 400 — that's reachability, not failure).
-- **Branch out of sync** — main moved `container/Dockerfile` or `claude.ts`, and `skill/skilder` is now stale. Open an issue or PR to rebase the branch on main; in the meantime, re-apply the two edits manually (`git diff origin/main..origin/skill/skilder` shows them — small).
+- **Branch out of sync** — main moved `container/Dockerfile` or `claude.ts`, and `skill/clawlective` is now stale. Open an issue or PR to rebase the branch on main; in the meantime, re-apply the two edits manually (`git diff origin/main..origin/skill/clawlective` shows them — small).
 
 ## Removal
 
@@ -153,13 +155,14 @@ ls -t data/v2-sessions/*/stderr.log | head -1 | xargs tail -50
 This skill follows CONTRIBUTING.md type 1 (feature skill, branch-based). Submission flow:
 
 - Push a single PR branch to your fork containing **both** the SKILL.md and the two source edits (`container/Dockerfile`, `container/agent-runner/src/providers/claude.ts`).
-- Open the PR against upstream `main`. The maintainer creates `skill/skilder` from the source-edit commit; the SKILL.md commit lands on `main`.
+- Open the PR against upstream `main`. The maintainer creates `skill/clawlective` from the source-edit commit; the SKILL.md commit lands on `main`.
 - Verify the pinned `mcp-remote` version: `npm view mcp-remote version` (3-day-old release per the `minimumReleaseAge` policy in `pnpm-workspace.yaml`).
 - **Disclose the privacy footprint** in the PR description — Skilder is a hosted service; every tool call sends data to `app.skilder.ai`. Reviewers should not have to infer that.
+- **Naming convention**: skill is `/add-clawlective` (the value); MCP server and tool prefix stay `skilder` / `mcp__skilder__*` (the provider). Keep both — the wrapper rebrand should not leak into the technical surface.
 - If a second remote-MCP skill ever needs `mcp-remote`, factor the Dockerfile lines into a shared base. Today it's a one-liner, so inlining is fine.
 
 ## Credits & references
 
-- **Skilder**: https://skilder.ai / https://app.skilder.ai
-- **`mcp-remote`**: https://www.npmjs.com/package/mcp-remote — stdio↔HTTP MCP bridge
+- **Powered by Skilder**: https://skilder.ai / https://app.skilder.ai — the platform serving the shared business brain behind Clawlective Intelligence.
+- **`mcp-remote`**: https://www.npmjs.com/package/mcp-remote — stdio↔HTTP MCP bridge.
 - **Skill pattern**: branch-based, modeled on [`/add-telegram`](../add-telegram/SKILL.md). HTTP-MCP precedent from [`/add-parallel`](../add-parallel/SKILL.md) (which edits `index.ts` directly — this skill stays per-group instead).
