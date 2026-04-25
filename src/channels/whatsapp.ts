@@ -147,8 +147,9 @@ function buildMediaMessage(data: Buffer, filename: string, ext: string, caption?
 
 registerChannelAdapter('whatsapp', {
   factory: () => {
-    const env = readEnvFile(['WHATSAPP_PHONE_NUMBER', 'WHATSAPP_ENABLED']);
+    const env = readEnvFile(['WHATSAPP_PHONE_NUMBER', 'WHATSAPP_ENABLED', 'WHATSAPP_SELF_CHAT_ONLY']);
     const phoneNumber = env.WHATSAPP_PHONE_NUMBER;
+    const selfChatOnly = env.WHATSAPP_SELF_CHAT_ONLY === 'true';
     const authDir = AUTH_DIR;
 
     // Skip if no existing auth, no phone number for pairing, and not explicitly enabled (QR mode)
@@ -165,6 +166,7 @@ registerChannelAdapter('whatsapp', {
     // LID → phone JID mapping (WhatsApp's new ID system)
     const lidToPhoneMap: Record<string, string> = {};
     let botLidUser: string | undefined;
+    let selfChatJid: string | undefined;
 
     // Outgoing queue for messages sent while disconnected
     const outgoingQueue: Array<{ jid: string; text: string }> = [];
@@ -448,6 +450,9 @@ registerChannelAdapter('whatsapp', {
           if (sock.user) {
             const phoneUser = sock.user.id.split(':')[0];
             const lidUser = sock.user.lid?.split(':')[0];
+            if (phoneUser) {
+              selfChatJid = `${phoneUser}@s.whatsapp.net`;
+            }
             if (lidUser && phoneUser) {
               setLidPhoneMapping(lidUser, `${phoneUser}@s.whatsapp.net`);
               botLidUser = lidUser;
@@ -528,15 +533,26 @@ registerChannelAdapter('whatsapp', {
             // Skip empty protocol messages (no text and no attachments)
             if (!content && attachments.length === 0) continue;
 
-            const sender = msg.key.participant || msg.key.remoteJid || '';
+            const rawSender = msg.key.participant || msg.key.remoteJid || '';
+            // Sender can arrive as @lid (WhatsApp's new ID system) even when
+            // chatJid translates cleanly. Without this, the router sees the LID
+            // as a different user than the registered phone-JID owner.
+            const sender = await translateJid(rawSender);
             const senderName = msg.pushName || sender.split('@')[0];
             const fromMe = msg.key.fromMe || false;
-            // Filter bot's own messages to prevent echo loops.
-            // fromMe is always true for messages sent from this linked device,
-            // regardless of ASSISTANT_HAS_OWN_NUMBER mode.
-            if (fromMe) continue;
-
             const isBotMessage = ASSISTANT_HAS_OWN_NUMBER ? false : content.startsWith(`${ASSISTANT_NAME}:`);
+
+            if (selfChatOnly) {
+              // Bot operates only in the user's Notes-to-Self chat. Every message
+              // there is fromMe=true (you ARE the only sender), so distinguish
+              // your typed input from the bot's own replies via the Andy: prefix.
+              if (chatJid !== selfChatJid) continue;
+              if (isBotMessage) continue;
+            } else if (fromMe) {
+              // Default mode: bot uses your number to reply to others. Drop your
+              // own outgoing messages to prevent echo loops on the linked device.
+              continue;
+            }
 
             // Check if this reply answers a pending question via slash command
             const pending = pendingQuestions.get(chatJid);
