@@ -13,6 +13,10 @@ With it, the **mcp__skilder__\*** tools (provided by Skilder, the platform power
 
 This skill wires one or more agent groups to the hosted Skilder MCP server (`https://app.skilder.ai/mcp?key=<UserKey>`). Run it once per group that should join the collective.
 
+### How is this different from `/add-karpathy-llm-wiki`?
+
+`/add-karpathy-llm-wiki` is **per-agent and local** — one NanoClaw curates a file-based wiki on disk over time, its own notes in its own scope. Clawlective Intelligence is **per-team and hosted** — every wired NanoClaw, across channels and across teammates, reads the same structured business context (projects, financials, customers, team rhythm) served live by Skilder. Use the wiki for *this agent's memory*; use Clawlective for *the team's shared reality*. They compose well: wiki for personal recall, Clawlective for ground truth everyone agrees on.
+
 ## Install
 
 NanoClaw doesn't ship `mcp-remote` or the `mcp__skilder__*` allowlist entry in trunk. This skill brings them in from the `skill/clawlective` branch and wires the selected group(s) locally.
@@ -58,14 +62,18 @@ Skilder issues the credential that authenticates a NanoClaw to the Clawlective b
 
 **If they need one, tell them:**
 
-> 1. Go to https://app.skilder.ai
-> 2. Sign in (or create an account).
-> 3. Open your account / API settings and copy the UserKey. It looks like `USKy...` — a string that starts with `USK`.
+> 1. Go to https://app.skilder.ai/register and create your account (or sign in if you already have one).
+> 2. Click your avatar → **Profile** → **API key**.
+> 3. Copy the UserKey — it starts with `USK` (e.g. `USKy...`).
 > 4. Paste it here.
 
 Wait for the key. **Do not** echo it back, write it to `.env`, or commit it. The key only ever lives in `groups/<folder>/container.json`, which is per-host.
 
 Validate minimally: starts with `USK`, ≥20 chars. If it doesn't match, ask again — almost certainly a copy/paste mistake.
+
+### Adding teammates to the workspace
+
+Each Skilder UserKey is scoped to that user's view of a workspace. For teammates' NanoClaws to draw from the **same** business context, the workspace **admin must invite them in Skilder first** — go to https://app.skilder.ai → workspace settings → **Members** → invite by email. Once a teammate accepts, they generate their own UserKey from their own **Profile → API key** page and run `/add-clawlective` on their own NanoClaw with that key. Without an invite, a fresh UserKey only sees that user's personal scope — the collective brain stays siloed.
 
 ### Pick which agent groups join the collective
 
