@@ -44,6 +44,7 @@ import {
 import { log } from './log.js';
 import { openInboundDb, openOutboundDb, inboundDbPath, heartbeatPath } from './session-manager.js';
 import { isContainerRunning, killContainer, wakeContainer } from './container-runner.js';
+import { notify } from './notify.js';
 import type { Session } from './types.js';
 
 const SWEEP_INTERVAL_MS = 60_000;
@@ -56,6 +57,24 @@ export const ABSOLUTE_CEILING_MS = 30 * 60 * 1000;
 export const CLAIM_STUCK_MS = 60 * 1000;
 const MAX_TRIES = 5;
 const BACKOFF_BASE_MS = 5000;
+
+// Dedup window for claim-stuck notifications: the sweep can re-detect the same
+// stuck claim every minute across multiple retries. One notif per hour per
+// messageId is enough to surface the issue without spamming.
+const CLAIM_STUCK_NOTIFY_DEDUP_MS = 60 * 60 * 1000;
+const notifiedClaimStuck = new Map<string, number>();
+function shouldNotifyClaimStuck(messageId: string): boolean {
+  const now = Date.now();
+  const last = notifiedClaimStuck.get(messageId) ?? 0;
+  if (now - last < CLAIM_STUCK_NOTIFY_DEDUP_MS) return false;
+  notifiedClaimStuck.set(messageId, now);
+  if (notifiedClaimStuck.size > 200) {
+    for (const [k, t] of notifiedClaimStuck) {
+      if (now - t > CLAIM_STUCK_NOTIFY_DEDUP_MS) notifiedClaimStuck.delete(k);
+    }
+  }
+  return true;
+}
 
 export type StuckDecision =
   | { action: 'ok' }
@@ -243,6 +262,9 @@ function enforceRunningContainerSla(
     claimAgeMs: decision.claimAgeMs,
     toleranceMs: decision.toleranceMs,
   });
+  if (shouldNotifyClaimStuck(decision.messageId)) {
+    notify('NanoClaw: container stuck', `Session ${session.id} — message claimed then silent (will retry).`);
+  }
   killContainer(session.id, 'claim-stuck');
   resetStuckProcessingRows(inDb, outDb, session, 'claim-stuck');
 }
@@ -271,6 +293,10 @@ function resetStuckProcessingRows(
         sessionId: session.id,
         reason,
       });
+      notify(
+        'NanoClaw: message FAILED',
+        `Session ${session.id} dropped a message after ${MAX_TRIES} retries (${reason}).`,
+      );
     } else {
       const backoffMs = BACKOFF_BASE_MS * Math.pow(2, msg.tries);
       const backoffSec = Math.floor(backoffMs / 1000);
