@@ -53,7 +53,26 @@ import './channels/index.js';
 import './modules/index.js';
 
 import type { ChannelAdapter, ChannelSetup } from './channels/adapter.js';
-import { initChannelAdapters, teardownChannelAdapters, getChannelAdapter } from './channels/channel-registry.js';
+import {
+  initChannelAdapters,
+  teardownChannelAdapters,
+  getChannelAdapter,
+  getActiveAdapters,
+} from './channels/channel-registry.js';
+import { getAllMessagingGroups } from './db/messaging-groups.js';
+import { notify } from './notify.js';
+
+function warnOnMissingChannelAdapters(): void {
+  const configured = new Set(getAllMessagingGroups().map((g) => g.channel_type));
+  const active = new Set(getActiveAdapters().map((a) => a.channelType));
+  const missing = [...configured].filter((t) => !active.has(t));
+  if (missing.length === 0) return;
+  log.warn('Channel types configured in DB but no adapter is registered', {
+    missing,
+    active: [...active],
+  });
+  notify('NanoClaw: channel adapter missing', `${missing.join(', ')} configured but not registered — rebuild needed?`);
+}
 
 async function main(): Promise<void> {
   log.info('NanoClaw starting');
@@ -125,6 +144,12 @@ async function main(): Promise<void> {
       },
     };
   });
+
+  // 3b. Sanity check: every channel_type referenced by a messaging_group must
+  // have a live adapter. Catches the silent-amputation case where the dist is
+  // out of sync with the source (e.g. a stale build that dropped a channel
+  // import) — no crash, no error, just no inbound traffic ever again.
+  warnOnMissingChannelAdapters();
 
   // 4. Delivery adapter bridge — dispatches to channel adapters
   const deliveryAdapter = {
